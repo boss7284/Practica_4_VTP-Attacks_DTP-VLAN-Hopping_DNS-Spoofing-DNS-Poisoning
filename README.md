@@ -1,5 +1,5 @@
-# Practica-Seguridad-Redes-4-Semana-6
----
+
+# Practica-4-VLAN-Hopping-VTP-Attack-DNS-Spoofing-gns3-y-scapy
 
 **Asignatura:** Seguridad en Redes
 
@@ -15,45 +15,43 @@
 
 ---
 
-##  Tabla de Contenidos
-
-* [Descripción General](https://www.google.com/search?q=%23-descripci%C3%B3n-general)
-* [Topología del Laboratorio](https://www.google.com/search?q=%23-topolog%C3%ADa-del-laboratorio)
-* [Configuraciones de Base (Hardening y AAA)](https://www.google.com/search?q=%23-configuraciones-de-base)
-* [Scripts de Ataque](https://www.google.com/search?q=%23-scripts-de-ataque)
-* [Verificación de Ataques](https://www.google.com/search?q=%23-verificaci%C3%B3n-de-ataques)
-* [Verificación de AAA y Seguridad](https://www.google.com/search?q=%23-verificaci%C3%B3n-de-aaa-y-seguridad)
-
----
-
 ##  Descripción General
 
-Esta práctica tiene como objetivo auditar la seguridad de una red Cisco mediante la ejecución de ataques controlados de Capa 2 (VTP, DTP) y Capa 7 (DNS Spoofing), mientras se implementa una infraestructura robusta utilizando **AAA (RADIUS)** y técnicas de **Hardening** de red.
+Este proyecto implementa una herramienta única de auditoría automatizada desarrollada en **Python** con el framework **Scapy**. El script central **`Ataquesyer_Tarea4.py`** integra todas las funciones de ataque y descubrimiento necesarias para la práctica, eliminando la necesidad de scripts externos.
 
-### Ataques Incluidos
+###  Script Central: `Ataquesyer_Tarea4.py`
 
-* **VTP Attacks**: Adición y eliminación de VLANs mediante manipulación de revisiones.
-* **DTP VLAN Hopping**: Salto de VLAN mediante la negociación forzada de enlaces troncales.
-* **DNS Spoofing**: Envenenamiento de resolución de nombres para `itla.edu.do`.
+Este archivo automatizado realiza las siguientes funciones:
 
-> **ADVERTENCIA** > Estas herramientas son para uso exclusivo en laboratorios educativos (GNS3). Cualquier uso fuera de este entorno es ilegal.
+* **Detección Dinámica**: Obtiene IPs y Gateway sin configuración manual.
+* **VTP Attack**: Agrega y borra VLANs manipulando el número de revisión.
+* **DTP VLAN Hopping**: Negocia dinámicamente el cambio de un puerto de acceso a Trunk.
+* **DNS Spoofing**: Intercepta y falsifica el registro de `itla.edu.do` en tiempo real.
 
 ---
 
 ##  Topología del Laboratorio
 
-### Configuraciones de Base
+![image alt](https://github.com/boss7284/d.u.m.p2/blob/main/Topologiasemana4.png)
 
-####  R1 (Router Cisco IOS) - Configuración AAA
+###  Configuración de Red (R1 y SW1)
+
+| Dispositivo | Interfaz | IP / VLAN | Rol / Seguridad |
+| --- | --- | --- | --- |
+| **R1** | Fa0/0.10 | 192.168.10.1 | Gateway & AAA RADIUS Server |
+| **SW1** | Gi0/1 | VLAN 10 | Puerto Víctima (Hardened) |
+| **SW1** | Gi0/2 | VLAN 10 | Puerto Atacante (Hardened) |
+| **Kali** | eth0 | 192.168.10.50 | Atacante (Script Automatizado) |
+
+---
+
+##  Configuraciones Técnicas (Hardening y AAA)
+
+### ROUTER R1 (AAA & RADIUS)
+
+Se configuró AAA para autenticar vía RADIUS con la IP de Kali (192.168.10.50):
 
 ```cisco
-enable
-conf t
-hostname R1
-no ip domain-lookup
-enable secret class123
-username admin privilege 15 secret cisco123
-
 aaa new-model
 radius server RAD1
  address ipv4 192.168.10.50 auth-port 1812 acct-port 1813
@@ -64,151 +62,85 @@ aaa authentication login default group RAD-GRP local
 aaa authorization exec default group RAD-GRP local
 aaa accounting exec default start-stop group RAD-GRP
 
-line vty 0 4
- login authentication default
- transport input telnet ssh
-exit
-interface FastEthernet0/0
- no shutdown
-exit
-interface FastEthernet0/0.10
- encapsulation dot1Q 10
- ip address 192.168.10.1 255.255.255.0
-exit
-end
-write memory
-
 ```
 
-####  SW1 (Cisco IOSvL2) - Hardening
+![image alt](https://github.com/boss7284/d.u.m.p2/blob/main/Screenshot%20aaaradius.png)
+
+### SWITCH SW1 (Seguridad L2)
+
+Protección activa contra los ataques del script:
 
 ```cisco
-enable
-conf t
-hostname SW1
-no ip domain-lookup
-vtp domain LAB
-vtp password vtp123
-vtp mode server
-vlan 10
- name USERS
-exit
-interface GigabitEthernet0/0
- switchport trunk encapsulation dot1q
- switchport mode trunk
- switchport trunk allowed vlan 10
-exit
-interface GigabitEthernet0/1
- switchport mode access
- switchport access vlan 10
- switchport nonegotiate
- spanning-tree portfast
- spanning-tree bpduguard enable
- no cdp enable
-exit
 interface GigabitEthernet0/2
  switchport mode access
- switchport access vlan 10
  switchport nonegotiate
  spanning-tree portfast
  spanning-tree bpduguard enable
  no cdp enable
-exit
-end
-write memory
 
 ```
+![image alt]()
 
-####  PC VÍCTIMA (VPCS) &  KALI LINUX
+---
+
+##  Ejecución y Verificación de Ataques
+
+Para ejecutar la auditoría completa, solo se requiere el script principal:
 
 ```bash
-# Configuración VPCS
-ip 192.168.10.10 255.255.255.0 192.168.10.1
-save
-
-# Configuración Kali (Atacante)
-sudo ip addr flush dev eth0
-sudo ip addr add 192.168.10.50/24 dev eth0
-sudo ip link set eth0 up
-sudo ip route add default via 192.168.10.1
-sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
-sudo systemctl stop avahi-daemon
+# Iniciar herramienta automatizada
+sudo python3 Ataquesyer_Tarea4.py
 
 ```
+![image alt](https://github.com/boss7284/d.u.m.p2/blob/main/ejecucoinSemana6tarea4.png)
+
+### 1. VTP Attack (Verificación)
+
+* **Comando**: `show vlan brief` / `show vtp status`
+* **Resultado**: La base de datos de VLANs se actualiza con los cambios inyectados por el script.
+
+![image alt](https://github.com/boss7284/d.u.m.p2/blob/main/Screenshot%20VTPattack.png)
+
+### 2. DTP VLAN Hopping (Verificación)
+
+* **Comando**: `show interfaces gi0/2 switchport`
+* **Resultado esperado**:
+* Administrative Mode: `dynamic desirable`
+* Operational Mode: `trunk`
+
+![image alt](https://github.com/boss7284/d.u.m.p2/blob/main/Screenshot%20DTPtrunkcheck.png)
+
+
+### 3. DNS Spoofing (Verificación)
+
+* **Desde VPCS**: `ping itla.edu.do` (Resuelve a 192.168.10.50).
+* **Desde Kali**: Simulación de query con `nslookup itla.edu.do 192.168.10.1`.
+
+![image alt](https://github.com/boss7284/d.u.m.p2/blob/main/Screenshot%20DNSspoofing.png)
 
 ---
 
-##  Scripts de Ataque
+##  Comandos de Auditoría AAA
 
-### Ejecución de los scripts
+Para validar la seguridad RADIUS configurada:
 
-* **VTP Attack**: `sudo python3 vtp_attack.py` (Previa inspección con `tcpdump -i eth0 -XX | grep -A5 "01:00:0c:cc:cc:cc"`)
-* **DTP Attack**: `sudo python3 dtp_attack.py --verify`
-* **DNS Spoofing**: `sudo python3 dns_spoofing.py`
+* `show aaa servers`
+* `show aaa sessions`
+* `debug radius`
+* `debug aaa authentication`
 
----
-
-##  Verificación de Ataques
-
-### VTP
-
-```cisco
-SW1# show vlan brief
-SW1# show vtp status
-
-```
-
-### DTP VLAN Hopping
-
-Al ejecutar el ataque, verifica el cambio de modo:
-
-```cisco
-SW1# show interfaces gi0/2 switchport | include Mode
-SW1# show interfaces gi0/2 trunk
-
-```
-
-* **Administrative Mode**: `dynamic desirable`
-* **Operational Mode**: `trunk`
-* **Operational Trunking Encapsulation**: `dot1q`
-
-### DNS Spoofing
-
-Desde VPCS:
-
-```bash
-VPCS> ping itla.edu.do
-VPCS> curl http://192.168.10.50
-
-```
+![image alt](https://github.com/boss7284/d.u.m.p2/blob/main/Screenshot%20aaaradius2.png)
 
 ---
 
-##  Verificación de AAA y Seguridad
+##  Requisitos
 
-Para validar que la autenticación está funcionando correctamente y que la topología es segura:
-
-### Comandos de depuración y estado de AAA
-
-```cisco
-debug aaa authentication
-debug aaa authorization
-debug radius
-show aaa servers
-show aaa sessions
-
-```
-
-### Seguridad de Capa 2
-
-Se ha verificado la seguridad mediante:
-
-1. **DTP**: `switchport nonegotiate` (Deshabilitado).
-2. **STP**: `bpduguard enable` (Protección contra Root Bridge attacks).
-3. **CDP**: `no cdp enable` (Prevención de reconocimiento de red).
+* **Kali Linux** con Scapy, Netifaces y Yersinia instalados.
+* **Python 3.10+**.
+* GNS3 con imágenes IOSv / IOSvL2.
 
 ---
 
-**Última actualización:** Febrero 2026
+**Desarrollado por:** Roberto de Jesus
 
-**Versión:** 1.0.0
+**Nota:** Este proyecto utiliza exclusivamente el framework Scapy integrado en **Ataquesyer_Tarea4.py** para todas las fases de la auditoría.
