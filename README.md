@@ -17,7 +17,7 @@
 
 ##  Descripción General
 
-Este proyecto implementa una herramienta única de auditoría automatizada desarrollada en **Python** con el framework **Scapy**. El script central **`Ataquesyer_Tarea4.py`** integra todas las funciones de ataque y descubrimiento necesarias para la práctica, eliminando la necesidad de scripts externos.
+Este proyecto implementa una herramienta única de auditoría automatizada desarrollada en **Python** con el framework **Scapy**. El script central **`Ataquesyer_Tarea4.py`** integra todas las funciones de ataque y descubrimiento necesarias para la práctica, eliminando la necesidad de scripts externos.(hay 2 versiones del script, ambos estan confirmado con funcionar en el entorno virtual de gns3 y tambien con una configuracion especifica de los switches y routers)
 
 ###  Script Central: `Ataquesyer_Tarea4.py`
 
@@ -43,6 +43,87 @@ Este archivo automatizado realiza las siguientes funciones:
 | **SW1** | Gi0/2 | VLAN 10 | Puerto Atacante (Hardened) |
 | **Kali** | eth0 | 192.168.10.50 | Atacante (Script Automatizado) |
 
+===========================================================================================
+```
+🔵 CONFIGURACIÓN COMPLETA – ROUTER R1 (Cisco IOS)
+enable
+conf t
+hostname R1
+no ip domain-lookup
+enable secret class123
+username admin privilege 15 secret cisco123
+aaa new-model
+radius server RAD1
+ address ipv4 192.168.10.50 auth-port 1812 acct-port 1813
+ key radius123
+aaa group server radius RAD-GRP
+ server name RAD1
+aaa authentication login default group RAD-GRP local
+aaa authorization exec default group RAD-GRP local
+aaa accounting exec default start-stop group RAD-GRP
+line vty 0 4
+ login authentication default
+ transport input telnet ssh
+exit
+interface FastEthernet0/0
+ no shutdown
+exit
+interface FastEthernet0/0.10
+ encapsulation dot1Q 10
+ ip address 192.168.10.1 255.255.255.0
+exit
+end
+write memory
+
+🟢 CONFIGURACIÓN COMPLETA – SWITCH SW1 (IOSvL2 / QEMU)
+enable
+conf t
+hostname SW1
+no ip domain-lookup
+vtp domain LAB
+vtp password vtp123
+vtp mode server
+vlan 10
+ name USERS
+exit
+interface GigabitEthernet0/0
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 10
+exit
+interface GigabitEthernet0/1
+ switchport mode access
+ switchport access vlan 10
+ switchport nonegotiate
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no cdp enable
+exit
+interface GigabitEthernet0/2
+ switchport mode access
+ switchport access vlan 10
+ switchport nonegotiate
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no cdp enable
+exit
+end
+write memory
+
+🟥 CONFIGURACIÓN – PC VÍCTIMA (VPCS)
+ip 192.168.10.10 255.255.255.0 192.168.10.1
+save
+
+🔴 CONFIGURACIÓN – KALI LINUX (ATACANTE)
+sudo ip addr flush dev eth0
+sudo ip addr add 192.168.10.50/24 dev eth0
+sudo ip link set eth0 up
+sudo ip route add default via 192.168.10.1
+sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
+sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
+sudo systemctl stop avahi-daemon
+sudo systemctl stop NetworkManager-wait-online
+```
 ---
 
 ##  Configuraciones Técnicas (Hardening y AAA)
